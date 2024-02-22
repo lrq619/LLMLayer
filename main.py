@@ -36,13 +36,29 @@ def filter_flops_latency(out):
 
 def total_mem_accessed(kernel_metrics):
     kernels = kernel_metrics[-7:]
+    kernels_weights = kernel_metrics[-7:-4]
+    kernels_kvc = kernel_metrics[-4:]
+
     total_mem_read = 0
     total_mem_write = 0
     for k in kernels:
         total_mem_read += k["read"]
         total_mem_write += k["write"]
 
-    return total_mem_read + total_mem_write
+    weights_mem_read = 0
+    weights_mem_write = 0
+    for k in kernels_weights:
+        weights_mem_read += k["read"]
+        weights_mem_write += k["write"]
+
+    kvc_mem_read = 0
+    kvc_mem_write = 0
+    for k in kernels_kvc:
+        kvc_mem_read += k["read"]
+        kvc_mem_write += k["write"]
+        
+
+    return total_mem_read + total_mem_write, weights_mem_read + weights_mem_write, kvc_mem_read + kvc_mem_write
 
 
         
@@ -62,8 +78,8 @@ def profile(token_len):
     out = utils.exec(cmd)
     kernel_metrics = filter_metric_table(out)
     print(f"Collected {len(kernel_metrics)} kernels")
-    total_mem = total_mem_accessed(kernel_metrics)
-    print(f"practical_latency: {practical_latency:.1f} ms. total flops: {total_flops/(1024**3):.1f} Gops. total memory accessed: {total_mem/(1024**3):.1f} GB")
+    total_mem, weights_mem, kvc_mem = total_mem_accessed(kernel_metrics)
+    print(f"practical_latency: {practical_latency:.1f} ms. total flops: {total_flops/(1024**3):.1f} Gops. total memory accessed: {total_mem/(1024**3):.1f} GB, weight memory accessed: {weights_mem/(1024**2):.1f} MB, kvc memory accessed: {kvc_mem/(1024**2):.1f} MB")
 
     compute = 19.5 * (1024**4)# FLOPS
     mem_bw = 1400 * (1024**3) # B/s
@@ -71,17 +87,23 @@ def profile(token_len):
     print(f"estimated_latency: {estimated_latency:.1f} ms under {compute/(1024**4):.1f} TFLOPS and {mem_bw/(1024**3):.1f} GB/s")
     error = (practical_latency - estimated_latency) / (practical_latency)
     print(f"error: {error*100:.1f}%")
-    return practical_latency, estimated_latency, error
+    return practical_latency, estimated_latency, error, weights_mem, kvc_mem
     
 def main():
     import ctp
     run = ctp.append_run("decoder_latency")
-    for token_len in range(1,8194,256):
-        p_latency, e_latency, error = profile(token_len)
+    sum_weights_mem = 0
+    sum_kvc_mem = 0
+    for token_len in [512]:
+
+        p_latency, e_latency, error, weights_mem, kvc_mem = profile(token_len)
+        sum_weights_mem += weights_mem
+        sum_kvc_mem += kvc_mem
         run.collect("p_latency", p_latency)
         run.collect("e_latency", e_latency)
         run.collect("error", error)
     run.stop_collect()
+    print(f"sum of weight mem accessed: {sum_weights_mem/(1024**3):.1f} GB, sum of kvc mem accessed: {sum_kvc_mem/(1024**3):.1f} GB")
 
 
 if __name__ == '__main__':
