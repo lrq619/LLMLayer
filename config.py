@@ -10,3 +10,14 @@ LAYER_CONFIG = {
        "num_layers": 40 
     }
 }
+
+HARDWARE_CONFIG = {
+    "a100": {
+        "compute": 19.5, # TFLOPS
+        "mem_bw": 1400 # GFLOPS
+    },
+    "v100": {
+        "compute": 7, # TFLOPS
+        "mem_bw": 700
+    }
+}

@@ -1,5 +1,6 @@
 import utils
 import re
+import config
 
 def filter_metric_table(out):
     regex = r"\s+(\w+\.sum)\s+(\w+)\s+([\d.]+)"
@@ -63,7 +64,7 @@ def total_mem_accessed(kernel_metrics):
 
         
 
-def profile(token_len):
+def profile(token_len, hardware="a100"):
     print(f"---token length: {token_len}---")
     python_path = utils.exec("which python")
     pwd = utils.exec("pwd")
@@ -81,8 +82,8 @@ def profile(token_len):
     total_mem, weights_mem, kvc_mem = total_mem_accessed(kernel_metrics)
     print(f"practical_latency: {practical_latency:.1f} ms. total flops: {total_flops/(1024**3):.1f} Gops. total memory accessed: {total_mem/(1024**3):.1f} GB, weight memory accessed: {weights_mem/(1024**2):.1f} MB, kvc memory accessed: {kvc_mem/(1024**2):.1f} MB")
 
-    compute = 19.5 * (1024**4)# FLOPS
-    mem_bw = 1400 * (1024**3) # B/s
+    compute = config.HARDWARE_CONFIG[hardware]["compute"] * (1024**4)
+    mem_bw = config.HARDWARE_CONFIG[hardware]["mem_bw"] * (1024**3)
     estimated_latency = (total_flops / compute + total_mem / mem_bw) * 1000 #ms
     print(f"estimated_latency: {estimated_latency:.1f} ms under {compute/(1024**4):.1f} TFLOPS and {mem_bw/(1024**3):.1f} GB/s")
     error = (practical_latency - estimated_latency) / (practical_latency)
